@@ -1,0 +1,3984 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>烧烤店经营看板系统</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            user-select: none;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            color: #667eea;
+            font-size: 28px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            padding: 5px 15px;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            display: inline-block;
+            min-width: 300px;
+        }
+
+        header h1:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        header h1[contenteditable="true"] {
+            border-color: #667eea;
+            background: #f8f9ff;
+            outline: none;
+            min-width: 300px;
+            cursor: text;
+        }
+
+        header h1[contenteditable="true"]:focus {
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+        }
+
+        .header-info {
+            text-align: right;
+            color: #666;
+        }
+
+        .clock {
+            font-size: 16px;
+            font-weight: bold;
+            color: #667eea;
+            line-height: 1.6;
+        }
+
+        .clock-date {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .sync-status {
+            margin-top: 10px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .sync-status.connected {
+            background: #e8f5e9;
+            color: #4caf50;
+        }
+
+        .sync-status.syncing {
+            background: #fff3e0;
+            color: #ff9800;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .nav-tab {
+            padding: 12px 24px;
+            background: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            color: #667eea;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-tab:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .nav-tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .add-module-btn {
+            padding: 12px 20px;
+            background: #764ba2;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .add-module-btn:hover {
+            transform: translateY(-2px);
+            background: #654090;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .content-section {
+            display: none;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .section-header h2 {
+            color: #667eea;
+            font-size: 24px;
+        }
+
+        .section-header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .hint-text {
+            font-size: 12px;
+            color: #999;
+            font-style: italic;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .value {
+            font-size: 36px;
+            font-weight: bold;
+        }
+
+        .stat-card .note {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 8px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 20px;
+            table-layout: fixed;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            position: relative;
+        }
+
+        .data-table th {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+            position: relative;
+            padding-right: 8px;
+        }
+
+        .data-table th:last-child {
+            padding-right: 15px;
+        }
+
+        .data-table tbody tr:hover {
+            background: #f5f5f5;
+        }
+
+        /* 列宽调整器样式 */
+        .resizer {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 5px;
+            height: 100%;
+            background: transparent;
+            cursor: col-resize;
+            z-index: 10;
+            transition: background 0.2s ease;
+        }
+
+        .resizer:hover,
+        .resizer.resizing {
+            background: #764ba2;
+            box-shadow: 0 0 5px rgba(118, 75, 162, 0.5);
+        }
+
+        .resizer.resizing {
+            background: #f44336;
+        }
+
+        /* 遮罩层 */
+        .resize-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            z-index: 9999;
+            cursor: col-resize;
+        }
+
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-normal {
+            background: #e8f5e9;
+            color: #4caf50;
+        }
+
+        .status-warning {
+            background: #fff3e0;
+            color: #ff9800;
+        }
+
+        .status-danger {
+            background: #ffebee;
+            color: #f44336;
+        }
+
+        .status-pending {
+            background: #e3f2fd;
+            color: #2196f3;
+        }
+
+        .status-completed {
+            background: #e8f5e9;
+            color: #4caf50;
+        }
+
+        .status-processing {
+            background: #fff3e0;
+            color: #ff9800;
+        }
+
+        .type-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .type-new {
+            background: #f3e5f5;
+            color: #9c27b0;
+        }
+
+        .type-old {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .source-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .source-frontend {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .source-miniprogram {
+            background: #e8f5e9;
+            color: #4caf50;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .btn-warning {
+            background: #ff9800;
+            color: white;
+        }
+
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .pagination button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #667eea;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .pagination button:hover {
+            background: #5568d3;
+        }
+
+        .pagination button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .pagination select {
+            padding: 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .settings-panel {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .settings-panel h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .setting-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .setting-row label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .setting-row input[type="number"],
+        .setting-row input[type="text"] {
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            transition: border-color 0.3s ease;
+        }
+
+        .setting-row input[type="number"]:focus,
+        .setting-row input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            position: relative;
+            z-index: 1001;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .modal-header h3 {
+            color: #667eea;
+            font-size: 20px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #666;
+            transition: color 0.3s ease;
+        }
+
+        .close-btn:hover {
+            color: #f44336;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .order-items {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .order-items h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .order-item-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .order-item-row select {
+            flex: 2;
+        }
+
+        .order-item-row input[type="number"] {
+            flex: 1;
+            width: 80px;
+        }
+
+        .order-item-row .btn-danger {
+            padding: 10px 15px;
+        }
+
+        .order-price {
+            flex: 1;
+            text-align: right;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .total-amount {
+            text-align: right;
+            font-size: 18px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .confirm-dialog {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .confirm-dialog h3 {
+            color: #f44336;
+            margin-bottom: 20px;
+        }
+
+        .confirm-dialog p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .confirm-dialog-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .alert-box {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .alert-box.warning {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+        }
+
+        .alert-box.danger {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+        }
+
+        .alert-box.info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+        }
+
+        /* 响应式设计 - 平板 (768px - 1024px) */
+        @media screen and (max-width: 1024px) {
+            .container {
+                max-width: 100%;
+                padding: 0 10px;
+            }
+
+            body {
+                padding: 10px;
+            }
+
+            header {
+                flex-direction: column;
+                gap: 15px;
+                padding: 15px;
+            }
+
+            header h1 {
+                font-size: 22px;
+                min-width: auto;
+                text-align: center;
+            }
+
+            .header-info {
+                text-align: center;
+            }
+
+            .content-section {
+                padding: 20px;
+            }
+
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .section-header h2 {
+                font-size: 20px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 15px;
+            }
+
+            .stat-card {
+                padding: 15px;
+            }
+
+            .stat-card .value {
+                font-size: 28px;
+            }
+
+            .stat-card h3 {
+                font-size: 13px;
+            }
+
+            .data-table {
+                font-size: 13px;
+            }
+
+            .data-table th,
+            .data-table td {
+                padding: 10px 8px;
+            }
+
+            .btn {
+                padding: 8px 15px;
+                font-size: 13px;
+            }
+
+            .btn-small {
+                padding: 4px 8px;
+                font-size: 11px;
+            }
+        }
+
+        /* 响应式设计 - 手机 (<= 767px) */
+        @media screen and (max-width: 767px) {
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                padding: 8px;
+                min-height: 100vh;
+            }
+
+            .container {
+                max-width: 100%;
+                width: 100%;
+            }
+
+            /* Header 响应式 */
+            header {
+                padding: 12px;
+                margin-bottom: 15px;
+                border-radius: 8px;
+            }
+
+            header h1 {
+                font-size: 18px;
+                min-width: auto;
+                width: 100%;
+                text-align: center;
+                padding: 8px 10px;
+            }
+
+            header h1:hover {
+                transform: none;
+            }
+
+            header h1[contenteditable="true"] {
+                min-width: 100%;
+                width: 100%;
+            }
+
+            .header-info {
+                width: 100%;
+                text-align: center;
+            }
+
+            .clock {
+                font-size: 14px;
+            }
+
+            .clock-date {
+                font-size: 12px;
+            }
+
+            .sync-status {
+                font-size: 12px;
+                padding: 6px 10px;
+                display: inline-block;
+                margin-top: 5px;
+            }
+
+            /* 导航 Tab 响应式 - 水平滚动 */
+            .nav-tabs {
+                gap: 8px;
+                margin-bottom: 15px;
+                overflow-x: auto;
+                overflow-y: hidden;
+                -webkit-overflow-scrolling: touch;
+                flex-wrap: nowrap;
+                padding: 5px 3px;
+                scrollbar-width: thin;
+                scrollbar-color: #667eea transparent;
+            }
+
+            .nav-tabs::-webkit-scrollbar {
+                height: 4px;
+            }
+
+            .nav-tabs::-webkit-scrollbar-track {
+                background: rgba(102, 126, 234, 0.1);
+                border-radius: 2px;
+            }
+
+            .nav-tabs::-webkit-scrollbar-thumb {
+                background: #667eea;
+                border-radius: 2px;
+            }
+
+            .nav-tab {
+                flex-shrink: 0;
+                padding: 10px 16px;
+                font-size: 13px;
+                border-radius: 6px;
+                white-space: nowrap;
+            }
+
+            .add-module-btn {
+                flex-shrink: 0;
+                padding: 10px 15px;
+                font-size: 18px;
+            }
+
+            /* 内容区域响应式 */
+            .content-section {
+                padding: 15px;
+                border-radius: 8px;
+            }
+
+            .section-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+                padding-bottom: 12px;
+            }
+
+            .section-header h2 {
+                font-size: 18px;
+                text-align: center;
+            }
+
+            .section-header-actions {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .section-header-actions .btn {
+                width: 100%;
+                padding: 10px;
+                font-size: 14px;
+            }
+
+            /* 统计卡片响应式 */
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+                margin-bottom: 15px;
+            }
+
+            .stat-card {
+                padding: 15px 10px;
+                border-radius: 8px;
+            }
+
+            .stat-card h3 {
+                font-size: 12px;
+                margin-bottom: 8px;
+            }
+
+            .stat-card .value {
+                font-size: 24px;
+                line-height: 1.2;
+            }
+
+            .stat-card .note {
+                font-size: 10px;
+                margin-top: 5px;
+            }
+
+            /* 表格响应式 - 卡片视图 */
+            .data-table-wrapper {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin: 15px 0;
+                border-radius: 8px;
+            }
+
+            .data-table {
+                width: 100%;
+                min-width: 600px;
+                font-size: 12px;
+                table-layout: fixed;
+            }
+
+            .data-table th,
+            .data-table td {
+                padding: 8px 6px;
+                text-align: left;
+                font-size: 11px;
+            }
+
+            .data-table th {
+                font-size: 10px;
+                font-weight: bold;
+                white-space: nowrap;
+            }
+
+            .data-table tbody tr {
+                border-bottom: 1px solid #e0e0e0;
+            }
+
+            .data-table tbody tr:hover {
+                background: #f5f5f5;
+            }
+
+            /* 列宽调整器在移动端隐藏 */
+            .resizer {
+                display: none;
+            }
+
+            /* 状态徽章响应式 */
+            .status-badge,
+            .type-badge,
+            .source-badge {
+                padding: 3px 8px;
+                font-size: 10px;
+                border-radius: 12px;
+                display: inline-block;
+            }
+
+            /* 按钮响应式 */
+            .btn {
+                width: auto;
+                padding: 8px 12px;
+                font-size: 12px;
+                border-radius: 5px;
+            }
+
+            .btn-small {
+                padding: 4px 8px;
+                font-size: 10px;
+                margin-left: 3px;
+            }
+
+            /* 分页响应式 */
+            .pagination {
+                flex-wrap: wrap;
+                gap: 8px;
+                padding: 10px 0;
+            }
+
+            .pagination button {
+                padding: 6px 12px;
+                font-size: 12px;
+                flex-shrink: 0;
+            }
+
+            .pagination select {
+                padding: 6px;
+                font-size: 12px;
+            }
+
+            .pagination span {
+                font-size: 12px;
+            }
+
+            /* 设置面板响应式 */
+            .settings-panel {
+                padding: 15px;
+                border-radius: 8px;
+            }
+
+            .settings-panel h4 {
+                font-size: 14px;
+                margin-bottom: 12px;
+            }
+
+            .setting-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+                margin-bottom: 8px;
+            }
+
+            .setting-row label {
+                font-size: 12px;
+            }
+
+            .setting-row input[type="number"],
+            .setting-row input[type="text"] {
+                width: 100%;
+                padding: 8px;
+                font-size: 14px;
+            }
+
+            /* 弹窗响应式 */
+            .modal-content {
+                width: 95%;
+                max-width: 90%;
+                max-height: 95vh;
+                border-radius: 10px;
+            }
+
+            .modal-header {
+                padding: 15px;
+            }
+
+            .modal-header h3 {
+                font-size: 18px;
+            }
+
+            .close-btn {
+                font-size: 24px;
+            }
+
+            .modal-body {
+                padding: 15px;
+            }
+
+            .form-group {
+                margin-bottom: 15px;
+            }
+
+            .form-group label {
+                font-size: 13px;
+            }
+
+            .form-group input,
+            .form-group select,
+            .form-group textarea {
+                padding: 10px;
+                font-size: 14px;
+            }
+
+            .form-row {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            /* 订单明细响应式 */
+            .order-items {
+                padding: 12px;
+                border-radius: 6px;
+            }
+
+            .order-items h4 {
+                font-size: 14px;
+                margin-bottom: 12px;
+            }
+
+            .order-item-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+                margin-bottom: 12px;
+            }
+
+            .order-item-row select {
+                width: 100%;
+            }
+
+            .order-item-row input[type="number"] {
+                width: 100%;
+            }
+
+            .total-amount {
+                font-size: 16px;
+                margin-bottom: 15px;
+            }
+
+            /* 提示文本响应式 */
+            .hint-text {
+                font-size: 11px;
+            }
+
+            /* 确认对话框响应式 */
+            .confirm-dialog {
+                padding: 25px;
+            }
+
+            .confirm-dialog h3 {
+                font-size: 16px;
+                margin-bottom: 15px;
+            }
+
+            .confirm-dialog p {
+                font-size: 13px;
+                margin-bottom: 20px;
+            }
+
+            .confirm-dialog-buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .confirm-dialog-buttons .btn {
+                width: 100%;
+            }
+
+            /* 警告框响应式 */
+            .alert-box {
+                padding: 12px 15px;
+                font-size: 12px;
+                border-radius: 6px;
+            }
+
+            /* 隐藏拖动提示 */
+            .hint-text {
+                display: none;
+            }
+        }
+
+        /* 超小屏幕优化 (< 375px) */
+        @media screen and (max-width: 374px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+
+            .nav-tab {
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+
+            .data-table {
+                font-size: 10px;
+            }
+
+            .data-table th,
+            .data-table td {
+                padding: 6px 4px;
+                font-size: 10px;
+            }
+
+            .stat-card .value {
+                font-size: 20px;
+            }
+        }
+
+        /* 横屏模式优化 */
+        @media screen and (max-height: 500px) and (orientation: landscape) {
+            body {
+                padding: 5px;
+            }
+
+            .container {
+                max-height: 100vh;
+                overflow-y: auto;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                gap: 8px;
+            }
+
+            .stat-card {
+                padding: 10px;
+            }
+
+            .stat-card .value {
+                font-size: 20px;
+            }
+
+            .content-section {
+                padding: 10px;
+            }
+        }
+
+        /* 触摸屏优化 */
+        @media (hover: none) and (pointer: coarse) {
+            .btn:active,
+            .nav-tab:active,
+            .add-module-btn:active {
+                transform: scale(0.98);
+            }
+
+            .data-table tbody tr:active {
+                background: #e8f0fe;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 id="pageTitle" onclick="enableEdit(this)">烧烤店经营看板系统</h1>
+            <div class="header-info">
+                <div class="clock">
+                    <div class="clock-date" id="clockDate"></div>
+                    <div id="clockTime"></div>
+                </div>
+                <div class="sync-status" id="syncStatus">
+                    <span>❌ 未连接云端</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="nav-tabs" id="navTabs">
+            <button class="nav-tab active" onclick="switchTab('orders')">📋 订单管理</button>
+            <button class="nav-tab" onclick="switchTab('menu')">🍖 菜品管理</button>
+            <button class="nav-tab" onclick="switchTab('inventory')">📦 库存监控</button>
+            <button class="nav-tab" onclick="switchTab('marketing')">📈 营销数据</button>
+            <button class="nav-tab" onclick="switchTab('complaints')">💬 客诉处理</button>
+            <button class="add-module-btn" onclick="openModal('addModule')">+</button>
+        </div>
+
+        <!-- 订单管理模块 -->
+        <section id="orders" class="content-section active">
+            <div class="section-header">
+                <h2>📋 订单管理</h2>
+                <div class="section-header-actions">
+                    <button class="btn btn-primary" onclick="openModal('addOrder')">➕ 前台点单</button>
+                    <button class="btn btn-success" onclick="syncFromMiniProgram()">🔄 同步小程序</button>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>订单总数</h3>
+                    <div class="value" id="orderTotal">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>等待中</h3>
+                    <div class="value" id="orderWaiting">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>进行中</h3>
+                    <div class="value" id="orderProcessing">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>已完成</h3>
+                    <div class="value" id="orderCompleted">0</div>
+                </div>
+            </div>
+
+            <div class="data-table-wrapper">
+                <table class="data-table" id="ordersTable">
+                    <thead>
+                        <tr>
+                            <th data-column="0" data-default-width="120">订单编号</th>
+                            <th data-column="1" data-default-width="120">桌号/客户</th>
+                            <th data-column="2" data-default-width="200">订单内容</th>
+                            <th data-column="3" data-default-width="100">订单金额</th>
+                            <th data-column="4" data-default-width="100">下单时间</th>
+                            <th data-column="5" data-default-width="100">等待时长</th>
+                            <th data-column="6" data-default-width="100">催单次数</th>
+                            <th data-column="7" data-default-width="100">订单状态</th>
+                            <th data-column="8" data-default-width="80">来源</th>
+                            <th data-column="9" data-default-width="150">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersTableBody">
+                    </tbody>
+                </table>
+            </div>
+            <p class="hint-text" style="margin-top: 10px;">💡 提示：拖动表头列右侧的竖条可调整列宽</p>
+
+            <div class="pagination" id="ordersPagination">
+                <button onclick="changePage('orders', -1)" id="ordersPrevBtn">上一页</button>
+                <span id="ordersPageInfo">第 1 页，共 1 页</span>
+                <button onclick="changePage('orders', 1)" id="ordersNextBtn">下一页</button>
+                <select id="ordersPageSize" onchange="changePageSize('orders')">
+                    <option value="5">每页 5 条</option>
+                    <option value="10">每页 10 条</option>
+                    <option value="20">每页 20 条</option>
+                </select>
+            </div>
+        </section>
+
+        <!-- 菜品管理模块 -->
+        <section id="menu" class="content-section">
+            <div class="section-header">
+                <h2>🍖 菜品管理</h2>
+                <div class="section-header-actions">
+                    <button class="btn btn-primary" onclick="openModal('addDish')">➕ 新增菜品</button>
+                </div>
+            </div>
+
+            <div class="settings-panel">
+                <h4>⚙️ 热销菜品设置</h4>
+                <div class="setting-row">
+                    <label>热销阈值（销售超过此数量自动标记为热销）：</label>
+                    <input type="number" id="hotDishThreshold" value="20" min="1" onchange="updateHotDishThreshold()">
+                </div>
+                <div class="setting-row">
+                    <small style="color: #666;">当前设置：销量 ≥ <strong id="hotThresholdDisplay">20</strong> 份时自动标记为热销菜品</small>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>菜品总数</h3>
+                    <div class="value" id="dishTotal">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>新品数量</h3>
+                    <div class="value" id="dishNewCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>今日销量</h3>
+                    <div class="value" id="dishTodaySales">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>热销菜品</h3>
+                    <div class="value" id="dishHotCount">0</div>
+                    <div class="note">销量 ≥ <span id="hotThresholdNote">20</span>份</div>
+                </div>
+            </div>
+
+            <div class="data-table-wrapper">
+                <table class="data-table" id="menuTable">
+                    <thead>
+                        <tr>
+                            <th data-column="0" data-default-width="150">菜品名称</th>
+                            <th data-column="1" data-default-width="100">菜品类型</th>
+                            <th data-column="2" data-default-width="100">成本价</th>
+                            <th data-column="3" data-default-width="100">销售价</th>
+                            <th data-column="4" data-default-width="100">销量</th>
+                            <th data-column="5" data-default-width="120">上架日期</th>
+                            <th data-column="6" data-default-width="100">是否热销</th>
+                            <th data-column="7" data-default-width="150">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="menuTableBody">
+                    </tbody>
+                </table>
+            </div>
+            <p class="hint-text" style="margin-top: 10px;">💡 提示：拖动表头列右侧的竖条可调整列宽</p>
+
+            <div class="pagination" id="menuPagination">
+                <button onclick="changePage('menu', -1)" id="menuPrevBtn">上一页</button>
+                <span id="menuPageInfo">第 1 页，共 1 页</span>
+                <button onclick="changePage('menu', 1)" id="menuNextBtn">下一页</button>
+                <select id="menuPageSize" onchange="changePageSize('menu')">
+                    <option value="5">每页 5 条</option>
+                    <option value="10">每页 10 条</option>
+                    <option value="20">每页 20 条</option>
+                </select>
+            </div>
+        </section>
+
+        <!-- 库存监控模块 -->
+        <section id="inventory" class="content-section">
+            <div class="section-header">
+                <h2>📦 库存监控</h2>
+                <div class="section-header-actions">
+                    <button class="btn btn-primary" onclick="openModal('addInventory')">➕ 新增库存</button>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>库存总数</h3>
+                    <div class="value" id="inventoryTotal">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>预警数量</h3>
+                    <div class="value" id="inventoryWarning">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>紧缺数量</h3>
+                    <div class="value" id="inventoryShortage">0</div>
+                </div>
+            </div>
+
+            <div class="data-table-wrapper">
+                <table class="data-table" id="inventoryTable">
+                    <thead>
+                        <tr>
+                            <th data-column="0" data-default-width="150">名称</th>
+                            <th data-column="1" data-default-width="100">单价</th>
+                            <th data-column="2" data-default-width="100">当前数量</th>
+                            <th data-column="3" data-default-width="80">单位</th>
+                            <th data-column="4" data-default-width="100">预警阈值</th>
+                            <th data-column="5" data-default-width="100">库存状态</th>
+                            <th data-column="6" data-default-width="150">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryTableBody">
+                    </tbody>
+                </table>
+            </div>
+            <p class="hint-text" style="margin-top: 10px;">💡 提示：拖动表头列右侧的竖条可调整列宽</p>
+
+            <div class="pagination" id="inventoryPagination">
+                <button onclick="changePage('inventory', -1)" id="inventoryPrevBtn">上一页</button>
+                <span id="inventoryPageInfo">第 1 页，共 1 页</span>
+                <button onclick="changePage('inventory', 1)" id="inventoryNextBtn">下一页</button>
+                <select id="inventoryPageSize" onchange="changePageSize('inventory')">
+                    <option value="5">每页 5 条</option>
+                    <option value="10">每页 10 条</option>
+                    <option value="20">每页 20 条</option>
+                </select>
+            </div>
+        </section>
+
+        <!-- 营销数据模块 -->
+        <section id="marketing" class="content-section">
+            <div class="section-header">
+                <h2>📈 营销数据</h2>
+                <div class="section-header-actions">
+                    <button class="btn btn-primary" onclick="openModal('addPromotion')">➕ 新增促销</button>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>今日营业额</h3>
+                    <div class="value" id="todayRevenue">¥0</div>
+                </div>
+            </div>
+
+            <div class="data-table-wrapper">
+                <table class="data-table" id="marketingTable">
+                    <thead>
+                        <tr>
+                            <th data-column="0" data-default-width="150">活动名称</th>
+                            <th data-column="1" data-default-width="100">折扣</th>
+                            <th data-column="2" data-default-width="200">开始时间</th>
+                            <th data-column="3" data-default-width="200">结束时间</th>
+                            <th data-column="4" data-default-width="100">状态</th>
+                            <th data-column="5" data-default-width="150">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="marketingTableBody">
+                    </tbody>
+                </table>
+            </div>
+            <p class="hint-text" style="margin-top: 10px;">💡 提示：拖动表头列右侧的竖条可调整列宽</p>
+
+            <div class="pagination" id="marketingPagination">
+                <button onclick="changePage('marketing', -1)" id="marketingPrevBtn">上一页</button>
+                <span id="marketingPageInfo">第 1 页，共 1 页</span>
+                <button onclick="changePage('marketing', 1)" id="marketingNextBtn">下一页</button>
+                <select id="marketingPageSize" onchange="changePageSize('marketing')">
+                    <option value="5">每页 5 条</option>
+                    <option value="10">每页 10 条</option>
+                    <option value="20">每页 20 条</option>
+                </select>
+            </div>
+        </section>
+
+        <!-- 客诉处理模块 -->
+        <section id="complaints" class="content-section">
+            <div class="section-header">
+                <h2>💬 客诉处理</h2>
+                <div class="section-header-actions">
+                    <button class="btn btn-primary" onclick="openModal('addComplaint')">➕ 记录客诉</button>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>待处理</h3>
+                    <div class="value" id="complaintPending">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>处理中</h3>
+                    <div class="value" id="complaintProcessing">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>已解决</h3>
+                    <div class="value" id="complaintCompleted">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>总客诉</h3>
+                    <div class="value" id="complaintTotal">0</div>
+                </div>
+            </div>
+
+            <div class="data-table-wrapper">
+                <table class="data-table" id="complaintsTable">
+                    <thead>
+                        <tr>
+                            <th data-column="0" data-default-width="150">投诉编号</th>
+                            <th data-column="1" data-default-width="200">投诉时间</th>
+                            <th data-column="2" data-default-width="150">客户信息</th>
+                            <th data-column="3" data-default-width="100">投诉类型</th>
+                            <th data-column="4" data-default-width="200">问题描述</th>
+                            <th data-column="5" data-default-width="100">严重程度</th>
+                            <th data-column="6" data-default-width="100">处理状态</th>
+                            <th data-column="7" data-default-width="150">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="complaintsTableBody">
+                    </tbody>
+                </table>
+            </div>
+            <p class="hint-text" style="margin-top: 10px;">💡 提示：拖动表头列右侧的竖条可调整列宽</p>
+
+            <div class="pagination" id="complaintsPagination">
+                <button onclick="changePage('complaints', -1)" id="complaintsPrevBtn">上一页</button>
+                <span id="complaintsPageInfo">第 1 页，共 1 页</span>
+                <button onclick="changePage('complaints', 1)" id="complaintsNextBtn">下一页</button>
+                <select id="complaintsPageSize" onchange="changePageSize('complaints')">
+                    <option value="5">每页 5 条</option>
+                    <option value="10">每页 10 条</option>
+                    <option value="20">每页 20 条</option>
+                </select>
+            </div>
+        </section>
+
+        <!-- 自定义模块容器 -->
+        <div id="customModules"></div>
+    </div>
+
+    <!-- 新增订单弹窗 -->
+    <div id="addOrderModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>➕ 前台点单</h3>
+                <button class="close-btn" onclick="closeModal('addOrder')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addOrderForm">
+                    <div class="form-group">
+                        <label>桌号/客户 *</label>
+                        <input type="text" id="orderTable" placeholder="例如：A桌 张先生" required>
+                    </div>
+
+                    <div class="order-items">
+                        <h4>订单明细</h4>
+                        <div id="orderItemsList"></div>
+                        <button type="button" class="btn btn-success" onclick="addOrderItem()" style="width: 100%; margin-top: 10px;">+ 添加菜品</button>
+                    </div>
+
+                    <div class="total-amount">
+                        订单金额：<span id="orderTotalAmount">¥0</span>
+                    </div>
+
+                    <button type="button" class="btn btn-primary" onclick="submitOrder()" style="width: 100%;">确认下单</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增菜品弹窗 -->
+    <div id="addDishModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>➕ 新增菜品</h3>
+                <button class="close-btn" onclick="closeModal('addDish')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addDishForm">
+                    <div class="form-group">
+                        <label>菜品名称 *</label>
+                        <input type="text" id="dishName" placeholder="请输入菜品名称" required>
+                    </div>
+                    <div class="form-group">
+                        <label>菜品类型</label>
+                        <select id="dishType">
+                            <option value="new">新品</option>
+                            <option value="old">旧品</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>成本价 *</label>
+                            <input type="number" id="dishCostPrice" placeholder="请输入成本价" required min="0" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label>销售价 *</label>
+                            <input type="number" id="dishSellPrice" placeholder="请输入销售价" required min="0" step="0.01">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>销量（自动统计）</label>
+                        <input type="number" id="dishSales" placeholder="自动从订单统计" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label>上架日期</label>
+                        <input type="date" id="dishDate">
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="addDish()" style="width: 100%;">确认添加</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增库存弹窗 -->
+    <div id="addInventoryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>➕ 新增库存</h3>
+                <button class="close-btn" onclick="closeModal('addInventory')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addInventoryForm">
+                    <div class="form-group">
+                        <label>名称 *</label>
+                        <input type="text" id="inventoryName" placeholder="请输入物品名称" required>
+                    </div>
+                    <div class="form-group">
+                        <label>单价（成本） *</label>
+                        <input type="number" id="inventoryPrice" placeholder="请输入成本单价" required min="0" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>当前数量 *</label>
+                        <input type="number" id="inventoryQuantity" placeholder="请输入数量" required min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>单位 *</label>
+                        <input type="text" id="inventoryUnit" placeholder="例如：kg、斤、个" required>
+                    </div>
+                    <div class="form-group">
+                        <label>预警阈值 *</label>
+                        <input type="number" id="inventoryThreshold" placeholder="请输入预警阈值" required min="0">
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="addInventory()" style="width: 100%;">确认添加</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增促销弹窗 -->
+    <div id="addPromotionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>➕ 新增促销</h3>
+                <button class="close-btn" onclick="closeModal('addPromotion')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addPromotionForm">
+                    <div class="form-group">
+                        <label>活动名称 *</label>
+                        <input type="text" id="promotionName" placeholder="请输入活动名称" required>
+                    </div>
+                    <div class="form-group">
+                        <label>折扣 *</label>
+                        <input type="text" id="promotionDiscount" placeholder="例如：8折" required>
+                    </div>
+                    <div class="form-group">
+                        <label>开始时间 *</label>
+                        <input type="datetime-local" id="promotionStartTime" required>
+                    </div>
+                    <div class="form-group">
+                        <label>结束时间 *</label>
+                        <input type="datetime-local" id="promotionEndTime" required>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="addPromotion()" style="width: 100%;">确认添加</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增客诉弹窗 -->
+    <div id="addComplaintModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>➕ 记录客诉</h3>
+                <button class="close-btn" onclick="closeModal('addComplaint')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addComplaintForm">
+                    <div class="form-group">
+                        <label>投诉时间</label>
+                        <input type="datetime-local" id="complaintTime">
+                    </div>
+                    <div class="form-group">
+                        <label>客户信息 *</label>
+                        <input type="text" id="complaintCustomer" placeholder="请输入客户姓名、联系方式等" required>
+                    </div>
+                    <div class="form-group">
+                        <label>投诉类型 *</label>
+                        <select id="complaintType" required>
+                            <option value="">请选择投诉类型</option>
+                            <option value="菜品质量">菜品质量</option>
+                            <option value="服务态度">服务态度</option>
+                            <option value="环境问题">环境问题</option>
+                            <option value="价格问题">价格问题</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>问题描述 *</label>
+                        <textarea rows="4" id="complaintDesc" placeholder="请详细描述客户投诉内容" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>严重程度 *</label>
+                        <select id="complaintSeverity" required>
+                            <option value="">请选择严重程度</option>
+                            <option value="轻微">轻微</option>
+                            <option value="一般">一般</option>
+                            <option value="严重">严重</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="addComplaint()" style="width: 100%;">记录投诉</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加自定义模块弹窗 -->
+    <div id="addModuleModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>➕ 添加自定义模块</h3>
+                <button class="close-btn" onclick="closeModal('addModule')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addModuleForm">
+                    <div class="form-group">
+                        <label>模块名称 *</label>
+                        <input type="text" id="moduleName" placeholder="请输入模块名称" required>
+                    </div>
+                    <div class="form-group">
+                        <label>模块图标（Emoji） *</label>
+                        <input type="text" id="moduleIcon" placeholder="例如：📊" required>
+                    </div>
+                    <div class="form-group">
+                        <label>模块描述</label>
+                        <textarea rows="3" id="moduleDesc" placeholder="请输入模块描述"></textarea>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="addModule()">创建模块</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 确认删除对话框 -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content confirm-dialog">
+            <h3>确认删除</h3>
+            <p id="confirmMessage">确定要删除这条记录吗？</p>
+            <div class="confirm-dialog-buttons">
+                <button class="btn btn-warning" onclick="cancelDelete()">取消</button>
+                <button class="btn btn-danger" onclick="confirmDelete()">确定删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 列宽调整遮罩层 -->
+    <div id="resizeOverlay" class="resize-overlay" style="display: none;"></div>
+
+    <script>
+        // 全局数据存储
+        const data = {
+            systemName: '烧烤店经营看板系统',
+            orders: [],
+            dishes: [],
+            inventory: [],
+            promotions: [],
+            complaints: [],
+            customModules: [],
+            settings: {
+                hotDishThreshold: 20
+            },
+            columnWidths: {}
+        };
+
+        // 分页配置
+        const pagination = {
+            orders: { page: 1, pageSize: 5, totalPages: 1 },
+            menu: { page: 1, pageSize: 5, totalPages: 1 },
+            inventory: { page: 1, pageSize: 5, totalPages: 1 },
+            marketing: { page: 1, pageSize: 5, totalPages: 1 },
+            complaints: { page: 1, pageSize: 5, totalPages: 1 }
+        };
+
+        let deleteTarget = null;
+        let orderItems = [];
+        let waitingTimeInterval = null;
+
+        // 列宽调整相关变量
+        let currentResizer = null;
+        let startX = 0;
+        let startWidth = 0;
+        let currentTable = null;
+        let currentColumnIndex = -1;
+
+        // 数据持久化
+        function saveData() {
+            localStorage.setItem('storeDashboardDataV8', JSON.stringify(data));
+            // 注意：这里不再显示同步状态，因为云端同步有专门的UI
+        }
+
+        function loadData() {
+            const saved = localStorage.getItem('storeDashboardDataV8');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                Object.assign(data, parsed);
+                if (!data.settings) {
+                    data.settings = { hotDishThreshold: 20 };
+                }
+                if (!data.systemName) {
+                    data.systemName = '烧烤店经营看板系统';
+                }
+                if (!data.columnWidths) {
+                    data.columnWidths = {};
+                }
+                return true;
+            }
+            return false;
+        }
+
+        function showSyncStatus(status) {
+            const statusEl = document.getElementById('syncStatus');
+            if (status === 'syncing') {
+                statusEl.className = 'sync-status syncing';
+                statusEl.innerHTML = '<span>● 同步中</span><span>数据保存中...</span>';
+            } else {
+                statusEl.className = 'sync-status connected';
+                statusEl.innerHTML = '<span>● 已连接</span>';
+            }
+        }
+
+        // 列宽调整功能
+        function initializeColumnResizers(tableId) {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+
+            const headers = table.querySelectorAll('th');
+            headers.forEach((header, index) => {
+                // 创建调整器
+                const resizer = document.createElement('div');
+                resizer.className = 'resizer';
+                resizer.dataset.tableId = tableId;
+                resizer.dataset.columnIndex = index;
+                
+                header.appendChild(resizer);
+
+                // 添加鼠标按下事件
+                resizer.addEventListener('mousedown', (e) => startResize(e, tableId, index, table, header));
+            });
+        }
+
+        function startResize(e, tableId, columnIndex, table, header) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            currentResizer = e.target;
+            startX = e.clientX;
+            startWidth = header.offsetWidth;
+            currentTable = table;
+            currentColumnIndex = columnIndex;
+
+            // 显示遮罩层
+            const overlay = document.getElementById('resizeOverlay');
+            overlay.style.display = 'block';
+
+            // 标记正在调整
+            currentResizer.classList.add('resizing');
+
+            // 添加鼠标移动和松开事件
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        }
+
+        function handleMouseMove(e) {
+            if (!currentResizer || !currentTable) return;
+
+            const diff = e.clientX - startX;
+            const newWidth = startWidth + diff;
+            const minWidth = 50; // 最小列宽
+            const maxWidth = 500; // 最大列宽
+
+            if (newWidth >= minWidth && newWidth <= maxWidth) {
+                // 更新列宽
+                updateColumnWidth(currentTable, currentColumnIndex, newWidth);
+            }
+        }
+
+        function updateColumnWidth(table, columnIndex, width) {
+            const headers = table.querySelectorAll('thead th');
+            const cells = table.querySelectorAll('tbody tr td');
+
+            // 更新表头
+            if (headers[columnIndex]) {
+                headers[columnIndex].style.width = width + 'px';
+                headers[columnIndex].style.minWidth = width + 'px';
+                headers[columnIndex].style.maxWidth = width + 'px';
+            }
+
+            // 更新表格中所有行对应列
+            cells.forEach(cell => {
+                const cellIndex = parseInt(cell.cellIndex);
+                if (cellIndex === columnIndex) {
+                    cell.style.width = width + 'px';
+                    cell.style.minWidth = width + 'px';
+                    cell.style.maxWidth = width + 'px';
+                }
+            });
+
+            // 保存列宽设置
+            const tableId = table.id;
+            if (!data.columnWidths[tableId]) {
+                data.columnWidths[tableId] = {};
+            }
+            data.columnWidths[tableId][columnIndex] = width;
+        }
+
+        function handleMouseUp(e) {
+            if (!currentResizer) return;
+
+            // 移除标记
+            currentResizer.classList.remove('resizing');
+
+            // 隐藏遮罩层
+            const overlay = document.getElementById('resizeOverlay');
+            overlay.style.display = 'none';
+
+            // 移除事件监听
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+
+            // 保存数据
+            saveData();
+
+            // 重置变量
+            currentResizer = null;
+            currentTable = null;
+            currentColumnIndex = -1;
+        }
+
+        function applySavedColumnWidths(tableId) {
+            const table = document.getElementById(tableId);
+            if (!table || !data.columnWidths[tableId]) return;
+
+            const savedWidths = data.columnWidths[tableId];
+            Object.keys(savedWidths).forEach(columnIndex => {
+                updateColumnWidth(table, parseInt(columnIndex), savedWidths[columnIndex]);
+            });
+        }
+
+        function resetColumnWidths(tableId) {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+
+            const headers = table.querySelectorAll('th');
+            headers.forEach((header, index) => {
+                const defaultWidth = header.dataset.defaultWidth;
+                if (defaultWidth) {
+                    updateColumnWidth(table, index, parseInt(defaultWidth));
+                }
+            });
+
+            // 保存重置后的数据
+            if (data.columnWidths[tableId]) {
+                delete data.columnWidths[tableId];
+                saveData();
+            }
+        }
+
+        // 实时时钟
+        function updateClock() {
+            const now = new Date();
+            const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            const day = now.getDate();
+            const weekday = weekdays[now.getDay()];
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            
+            document.getElementById('clockDate').textContent = `${year}年${month}月${day}日${weekday}`;
+            document.getElementById('clockTime').textContent = `${hours}:${minutes}:${seconds}`;
+        }
+
+        // Tab切换
+        function switchTab(tabId) {
+            // 隐藏所有内容区域
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            // 移除所有Tab的active状态
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            // 显示对应内容区域
+            document.getElementById(tabId).classList.add('active');
+            // 高亮对应Tab
+            const tabs = document.querySelectorAll('.nav-tab');
+            tabs.forEach(tab => {
+                if (tab.onclick.toString().includes(tabId)) {
+                    tab.classList.add('active');
+                }
+            });
+        }
+
+        // 模态框操作
+        function openModal(modalId) {
+            document.getElementById(modalId + 'Modal').classList.add('active');
+            if (modalId === 'addOrder') {
+                initOrderForm();
+            } else if (modalId === 'addDish') {
+                document.getElementById('dishDate').valueAsDate = new Date();
+                document.getElementById('dishSales').value = 0;
+            } else if (modalId === 'addComplaint') {
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                document.getElementById('complaintTime').value = now.toISOString().slice(0, 16);
+            }
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId + 'Modal').classList.remove('active');
+        }
+
+        // 标题编辑
+        function enableEdit(element) {
+            element.contentEditable = true;
+            element.focus();
+            element.addEventListener('blur', function() {
+                element.contentEditable = false;
+                data.systemName = element.textContent.trim();
+                saveData();
+            });
+            element.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    element.contentEditable = false;
+                    element.blur();
+                }
+            });
+        }
+
+        // 订单管理相关函数
+        function initOrderForm() {
+            orderItems = [];
+            document.getElementById('orderItemsList').innerHTML = '';
+            document.getElementById('orderTotalAmount').textContent = '¥0';
+            addOrderItem();
+        }
+
+        function addOrderItem() {
+            const container = document.getElementById('orderItemsList');
+            const itemId = Date.now();
+            const dishOptions = data.dishes.map(dish => `<option value="${dish.id}">${dish.name}</option>`).join('');
+            
+            const itemRow = document.createElement('div');
+            itemRow.className = 'order-item-row';
+            itemRow.dataset.id = itemId;
+            itemRow.innerHTML = `
+                <select class="dish-select" onchange="updateOrderItem(${itemId})">
+                    <option value="">请选择菜品</option>
+                    ${dishOptions}
+                </select>
+                <input type="number" class="dish-quantity" value="1" min="1" onchange="updateOrderItem(${itemId})">
+                <span class="order-price">¥0</span>
+                <button type="button" class="btn btn-danger" onclick="removeOrderItem(${itemId})">删除</button>
+            `;
+            container.appendChild(itemRow);
+        }
+
+        function removeOrderItem(itemId) {
+            const container = document.getElementById('orderItemsList');
+            const itemRow = container.querySelector(`[data-id="${itemId}"]`);
+            if (itemRow) {
+                itemRow.remove();
+                updateOrderAmount();
+            }
+        }
+
+        function updateOrderItem(itemId) {
+            const container = document.getElementById('orderItemsList');
+            const itemRow = container.querySelector(`[data-id="${itemId}"]`);
+            if (itemRow) {
+                const select = itemRow.querySelector('.dish-select');
+                const quantity = itemRow.querySelector('.dish-quantity').value;
+                const priceSpan = itemRow.querySelector('.order-price');
+                
+                if (select.value) {
+                    const dish = data.dishes.find(d => d.id == select.value);
+                    if (dish) {
+                        const price = dish.sellPrice || 0;
+                        priceSpan.textContent = '¥' + (price * parseInt(quantity)).toFixed(2);
+                    }
+                } else {
+                    priceSpan.textContent = '¥0';
+                }
+                updateOrderAmount();
+            }
+        }
+
+        function updateOrderAmount() {
+            let total = 0;
+            const itemRows = document.querySelectorAll('.order-item-row');
+            itemRows.forEach(row => {
+                const select = row.querySelector('.dish-select');
+                const quantity = row.querySelector('.dish-quantity').value;
+                if (select.value) {
+                    const dish = data.dishes.find(d => d.id == select.value);
+                    if (dish) {
+                        total += (dish.sellPrice || 0) * parseInt(quantity);
+                    }
+                }
+            });
+            document.getElementById('orderTotalAmount').textContent = '¥' + total.toFixed(2);
+        }
+
+        function submitOrder() {
+            const table = document.getElementById('orderTable').value.trim();
+            
+            if (!table) {
+                alert('请填写桌号/客户信息');
+                return;
+            }
+
+            const itemRows = document.querySelectorAll('.order-item-row');
+            if (itemRows.length === 0) {
+                alert('请至少添加一个菜品');
+                return;
+            }
+
+            let orderContent = [];
+            let totalAmount = 0;
+            const now = new Date();
+            const orderTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            itemRows.forEach(row => {
+                const select = row.querySelector('.dish-select');
+                const quantity = row.querySelector('.dish-quantity').value;
+                if (select.value) {
+                    const dish = data.dishes.find(d => d.id == select.value);
+                    if (dish) {
+                        orderContent.push({
+                            name: dish.name,
+                            quantity: parseInt(quantity),
+                            price: dish.sellPrice || 0
+                        });
+                        totalAmount += (dish.sellPrice || 0) * parseInt(quantity);
+                    }
+                }
+            });
+
+            if (orderContent.length === 0) {
+                alert('请选择菜品');
+                return;
+            }
+
+            const order = {
+                id: Date.now(),
+                orderId: 'ORD' + Date.now(),
+                table: table,
+                content: orderContent,
+                amount: totalAmount,
+                orderTime: orderTime,
+                orderDate: now.toISOString().split('T')[0],
+                waitTime: '0分钟',
+                orderTimestamp: now.getTime(),
+                urgeCount: 0,
+                status: 'waiting',
+                source: 'frontend'
+            };
+
+            data.orders.unshift(order);
+
+            // 更新菜品销量
+            orderContent.forEach(item => {
+                const dish = data.dishes.find(d => d.name === item.name);
+                if (dish) {
+                    dish.sales = (dish.sales || 0) + item.quantity;
+                }
+            });
+
+            saveData();
+            renderOrders();
+            updateOrderStats();
+            renderMenu();
+            updateMenuStats();
+            updateTodayRevenue();
+            closeModal('addOrder');
+
+            // 同步到云端
+            const cloudOrder = convertOrdersToCloud([order])[0];
+            syncToCloud('orders', 'create', cloudOrder);
+
+            // 清空表单
+            document.getElementById('addOrderForm').reset();
+        }
+
+        function renderOrders() {
+            const tbody = document.getElementById('ordersTableBody');
+            const { page, pageSize } = pagination.orders;
+            const start = (page - 1) * pageSize;
+            const end = start + pageSize;
+            const orders = data.orders.slice(start, end);
+
+            pagination.orders.totalPages = Math.ceil(data.orders.length / pageSize);
+
+            tbody.innerHTML = orders.map(order => {
+                const contentStr = order.content.map(item => `${item.name} x${item.quantity}`).join(', ');
+                const statusClass = order.status === 'waiting' ? 'status-pending' : 
+                                   order.status === 'processing' ? 'status-processing' : 'status-completed';
+                const statusText = order.status === 'waiting' ? '等待中' : 
+                                 order.status === 'processing' ? '进行中' : '已完成';
+                const sourceClass = order.source === 'frontend' ? 'source-frontend' : 'source-miniprogram';
+                const sourceText = order.source === 'frontend' ? '前台' : '小程序';
+
+                let actions = '';
+                if (order.status === 'waiting') {
+                    actions = `<button class="btn btn-primary btn-small" onclick="updateOrderStatus(${order.id}, 'processing')">开始制作</button>`;
+                } else if (order.status === 'processing') {
+                    actions = `<button class="btn btn-success btn-small" onclick="updateOrderStatus(${order.id}, 'completed')">完成订单</button>`;
+                }
+
+                return `
+                    <tr>
+                        <td>${order.orderId}</td>
+                        <td>${order.table}</td>
+                        <td>${contentStr}</td>
+                        <td>¥${order.amount.toFixed(2)}</td>
+                        <td>${order.orderTime}</td>
+                        <td class="wait-time" data-timestamp="${order.orderTimestamp}">${order.waitTime}</td>
+                        <td>${order.urgeCount}</td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td><span class="source-badge ${sourceClass}">${sourceText}</span></td>
+                        <td>
+                            ${actions}
+                            <button class="btn btn-danger btn-small" onclick="deleteOrder(${order.id})">删除</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            updatePagination('orders');
+            updateWaitingTime();
+        }
+
+        function updateOrderStatus(id, status) {
+            const order = data.orders.find(o => o.id === id);
+            if (order) {
+                order.status = status;
+                saveData();
+                renderOrders();
+                updateOrderStats();
+
+                // 同步到云端
+                const cloudOrder = convertOrdersToCloud([order])[0];
+                syncToCloud('orders', 'update', cloudOrder);
+            }
+        }
+
+        function deleteOrder(id) {
+            deleteTarget = { type: 'order', id: id };
+            document.getElementById('confirmMessage').textContent = '确定要删除这条订单吗？';
+            openModal('confirm');
+        }
+
+        function updateOrderStats() {
+            document.getElementById('orderTotal').textContent = data.orders.length;
+            document.getElementById('orderWaiting').textContent = data.orders.filter(o => o.status === 'waiting').length;
+            document.getElementById('orderProcessing').textContent = data.orders.filter(o => o.status === 'processing').length;
+            document.getElementById('orderCompleted').textContent = data.orders.filter(o => o.status === 'completed').length;
+        }
+
+        function updateWaitingTime() {
+            const waitTimeElements = document.querySelectorAll('.wait-time');
+            waitTimeElements.forEach(el => {
+                const timestamp = parseInt(el.dataset.timestamp);
+                const diff = Date.now() - timestamp;
+                const minutes = Math.floor(diff / 60000);
+                el.textContent = minutes + '分钟';
+            });
+        }
+
+        function syncFromMiniProgram() {
+            // 预留接口，待小程序开发后接入
+            alert('小程序同步功能待开发，已预留数据库接口');
+        }
+
+        // 菜品管理相关函数
+        function addDish() {
+            const name = document.getElementById('dishName').value.trim();
+            const type = document.getElementById('dishType').value;
+            const costPrice = parseFloat(document.getElementById('dishCostPrice').value) || 0;
+            const sellPrice = parseFloat(document.getElementById('dishSellPrice').value) || 0;
+            const date = document.getElementById('dishDate').value;
+
+            if (!name) {
+                alert('请输入菜品名称');
+                return;
+            }
+
+            if (costPrice < 0 || sellPrice < 0) {
+                alert('价格不能为负数');
+                return;
+            }
+
+            const dish = {
+                id: Date.now(),
+                name: name,
+                type: type,
+                costPrice: costPrice,
+                sellPrice: sellPrice,
+                sales: 0,
+                date: date
+            };
+
+            data.dishes.unshift(dish);
+            saveData();
+            renderMenu();
+            updateMenuStats();
+            closeModal('addDish');
+
+            // 同步到云端
+            const cloudDish = convertDishesToCloud([dish])[0];
+            syncToCloud('dishes', 'create', cloudDish);
+
+            document.getElementById('addDishForm').reset();
+        }
+
+        function renderMenu() {
+            const tbody = document.getElementById('menuTableBody');
+            const { page, pageSize } = pagination.menu;
+            const start = (page - 1) * pageSize;
+            const end = start + pageSize;
+            const dishes = data.dishes.slice(start, end);
+
+            pagination.menu.totalPages = Math.ceil(data.dishes.length / pageSize);
+            const hotThreshold = data.settings.hotDishThreshold;
+
+            tbody.innerHTML = dishes.map(dish => {
+                const typeClass = dish.type === 'new' ? 'type-new' : 'type-old';
+                const typeText = dish.type === 'new' ? '新品' : '旧品';
+                const isHot = dish.sales >= hotThreshold;
+
+                return `
+                    <tr>
+                        <td>${dish.name}</td>
+                        <td><span class="type-badge ${typeClass}">${typeText}</span></td>
+                        <td>¥${dish.costPrice.toFixed(2)}</td>
+                        <td>¥${dish.sellPrice.toFixed(2)}</td>
+                        <td>${dish.sales}</td>
+                        <td>${dish.date}</td>
+                        <td>${isHot ? '🔥 热销' : ''}</td>
+                        <td>
+                            <button class="btn btn-warning btn-small" onclick="editDish(${dish.id})">编辑</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteDish(${dish.id})">删除</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            updatePagination('menu');
+        }
+
+        function editDish(id) {
+            const dish = data.dishes.find(d => d.id === id);
+            if (dish) {
+                document.getElementById('dishName').value = dish.name;
+                document.getElementById('dishType').value = dish.type;
+                document.getElementById('dishCostPrice').value = dish.costPrice;
+                document.getElementById('dishSellPrice').value = dish.sellPrice;
+                document.getElementById('dishSales').value = dish.sales;
+                document.getElementById('dishDate').value = dish.date;
+                
+                document.querySelector('#addDishModal h3').textContent = '✏️ 编辑菜品';
+                document.getElementById('addDishModal').dataset.editId = id;
+                openModal('addDish');
+            }
+        }
+
+        function deleteDish(id) {
+            deleteTarget = { type: 'dish', id: id };
+            document.getElementById('confirmMessage').textContent = '确定要删除这道菜品吗？';
+            openModal('confirm');
+        }
+
+        function updateMenuStats() {
+            const hotThreshold = data.settings.hotDishThreshold;
+            document.getElementById('dishTotal').textContent = data.dishes.length;
+            document.getElementById('dishNewCount').textContent = data.dishes.filter(d => d.type === 'new').length;
+            
+            // 今日销量
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('dishTodaySales').textContent = data.dishes
+                .reduce((sum, d) => sum + (d.sales || 0), 0);
+            
+            document.getElementById('dishHotCount').textContent = data.dishes.filter(d => (d.sales || 0) >= hotThreshold).length;
+            document.getElementById('hotThresholdNote').textContent = hotThreshold;
+            document.getElementById('hotThresholdDisplay').textContent = hotThreshold;
+            document.getElementById('hotDishThreshold').value = hotThreshold;
+        }
+
+        function updateHotDishThreshold() {
+            const threshold = parseInt(document.getElementById('hotDishThreshold').value);
+            if (threshold > 0) {
+                data.settings.hotDishThreshold = threshold;
+                saveData();
+                renderMenu();
+                updateMenuStats();
+            }
+        }
+
+        // 库存管理相关函数
+        function addInventory() {
+            const name = document.getElementById('inventoryName').value.trim();
+            const price = parseFloat(document.getElementById('inventoryPrice').value) || 0;
+            const quantity = parseInt(document.getElementById('inventoryQuantity').value);
+            const unit = document.getElementById('inventoryUnit').value.trim();
+            const threshold = parseInt(document.getElementById('inventoryThreshold').value);
+
+            if (!name || !unit || isNaN(quantity) || isNaN(threshold)) {
+                alert('请填写完整库存信息');
+                return;
+            }
+
+            let status;
+            if (quantity <= threshold) {
+                status = 'shortage';
+            } else if (quantity <= threshold * 1.5) {
+                status = 'warning';
+            } else {
+                status = 'normal';
+            }
+
+            const item = {
+                id: Date.now(),
+                name: name,
+                price: price,
+                quantity: quantity,
+                unit: unit,
+                threshold: threshold,
+                status: status
+            };
+
+            data.inventory.unshift(item);
+            saveData();
+            renderInventory();
+            updateInventoryStats();
+            closeModal('addInventory');
+
+            // 同步到云端
+            const cloudInventory = convertInventoryToCloud([item])[0];
+            syncToCloud('inventory', 'create', cloudInventory);
+
+            document.getElementById('addInventoryForm').reset();
+        }
+
+        function renderInventory() {
+            const tbody = document.getElementById('inventoryTableBody');
+            const { page, pageSize } = pagination.inventory;
+            const start = (page - 1) * pageSize;
+            const end = start + pageSize;
+            const items = data.inventory.slice(start, end);
+
+            pagination.inventory.totalPages = Math.ceil(data.inventory.length / pageSize);
+
+            tbody.innerHTML = items.map(item => {
+                const statusClass = item.status === 'normal' ? 'status-normal' : 
+                                   item.status === 'warning' ? 'status-warning' : 'status-danger';
+                const statusText = item.status === 'normal' ? '正常' : 
+                                 item.status === 'warning' ? '预警' : '紧缺';
+
+                return `
+                    <tr>
+                        <td>${item.name}</td>
+                        <td>¥${item.price.toFixed(2)}</td>
+                        <td>${item.quantity}</td>
+                        <td>${item.unit}</td>
+                        <td>${item.threshold}</td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td>
+                            <button class="btn btn-warning btn-small" onclick="editInventory(${item.id})">编辑</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteInventory(${item.id})">删除</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            updatePagination('inventory');
+        }
+
+        function editInventory(id) {
+            const item = data.inventory.find(i => i.id === id);
+            if (item) {
+                document.getElementById('inventoryName').value = item.name;
+                document.getElementById('inventoryPrice').value = item.price;
+                document.getElementById('inventoryQuantity').value = item.quantity;
+                document.getElementById('inventoryUnit').value = item.unit;
+                document.getElementById('inventoryThreshold').value = item.threshold;
+                
+                document.querySelector('#addInventoryModal h3').textContent = '✏️ 编辑库存';
+                document.getElementById('addInventoryModal').dataset.editId = id;
+                openModal('addInventory');
+            }
+        }
+
+        function deleteInventory(id) {
+            deleteTarget = { type: 'inventory', id: id };
+            document.getElementById('confirmMessage').textContent = '确定要删除这条库存记录吗？';
+            openModal('confirm');
+        }
+
+        function updateInventoryStats() {
+            document.getElementById('inventoryTotal').textContent = data.inventory.length;
+            document.getElementById('inventoryWarning').textContent = data.inventory.filter(i => i.status === 'warning').length;
+            document.getElementById('inventoryShortage').textContent = data.inventory.filter(i => i.status === 'shortage').length;
+        }
+
+        // 营销数据相关函数
+        function addPromotion() {
+            const name = document.getElementById('promotionName').value.trim();
+            const discount = document.getElementById('promotionDiscount').value.trim();
+            const startTime = document.getElementById('promotionStartTime').value;
+            const endTime = document.getElementById('promotionEndTime').value;
+
+            if (!name || !discount || !startTime || !endTime) {
+                alert('请填写完整促销信息');
+                return;
+            }
+
+            const now = new Date();
+            const start = new Date(startTime);
+            const end = new Date(endTime);
+            
+            let status;
+            if (now < start) {
+                status = 'upcoming';
+            } else if (now >= start && now <= end) {
+                status = 'active';
+            } else {
+                status = 'ended';
+            }
+
+            const promotion = {
+                id: Date.now(),
+                name: name,
+                discount: discount,
+                startTime: startTime,
+                endTime: endTime,
+                status: status
+            };
+
+            data.promotions.unshift(promotion);
+            saveData();
+            renderPromotions();
+            closeModal('addPromotion');
+
+            // 同步到云端
+            const cloudPromotion = convertPromotionsToCloud([promotion])[0];
+            syncToCloud('promotions', 'create', cloudPromotion);
+
+            document.getElementById('addPromotionForm').reset();
+        }
+
+        function renderPromotions() {
+            const tbody = document.getElementById('marketingTableBody');
+            const { page, pageSize } = pagination.marketing;
+            const start = (page - 1) * pageSize;
+            const end = start + pageSize;
+            const promotions = data.promotions.slice(start, end);
+
+            pagination.marketing.totalPages = Math.ceil(data.promotions.length / pageSize);
+            const now = new Date();
+
+            tbody.innerHTML = promotions.map(promo => {
+                const start = new Date(promo.startTime);
+                const end = new Date(promo.endTime);
+                
+                let status;
+                if (now < start) {
+                    status = '未开始';
+                } else if (now >= start && now <= end) {
+                    status = '进行中';
+                } else {
+                    status = '已结束';
+                }
+
+                const statusClass = status === '进行中' ? 'status-processing' : 
+                                   status === '已结束' ? 'status-completed' : 'status-pending';
+
+                return `
+                    <tr>
+                        <td>${promo.name}</td>
+                        <td>${promo.discount}</td>
+                        <td>${new Date(promo.startTime).toLocaleString('zh-CN')}</td>
+                        <td>${new Date(promo.endTime).toLocaleString('zh-CN')}</td>
+                        <td><span class="status-badge ${statusClass}">${status}</span></td>
+                        <td>
+                            <button class="btn btn-warning btn-small" onclick="editPromotion(${promo.id})">编辑</button>
+                            <button class="btn btn-danger btn-small" onclick="deletePromotion(${promo.id})">删除</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            updatePagination('marketing');
+        }
+
+        function editPromotion(id) {
+            const promo = data.promotions.find(p => p.id === id);
+            if (promo) {
+                document.getElementById('promotionName').value = promo.name;
+                document.getElementById('promotionDiscount').value = promo.discount;
+                document.getElementById('promotionStartTime').value = promo.startTime;
+                document.getElementById('promotionEndTime').value = promo.endTime;
+                
+                document.querySelector('#addPromotionModal h3').textContent = '✏️ 编辑促销';
+                document.getElementById('addPromotionModal').dataset.editId = id;
+                openModal('addPromotion');
+            }
+        }
+
+        function deletePromotion(id) {
+            deleteTarget = { type: 'promotion', id: id };
+            document.getElementById('confirmMessage').textContent = '确定要删除这个促销活动吗？';
+            openModal('confirm');
+        }
+
+        function updateTodayRevenue() {
+            const today = new Date().toISOString().split('T')[0];
+            const todayOrders = data.orders.filter(o => o.orderDate === today);
+            const total = todayOrders.reduce((sum, o) => sum + o.amount, 0);
+            document.getElementById('todayRevenue').textContent = '¥' + total.toFixed(2);
+        }
+
+        // 客诉处理相关函数
+        function addComplaint() {
+            const time = document.getElementById('complaintTime').value;
+            const customer = document.getElementById('complaintCustomer').value.trim();
+            const type = document.getElementById('complaintType').value;
+            const desc = document.getElementById('complaintDesc').value.trim();
+            const severity = document.getElementById('complaintSeverity').value;
+
+            if (!customer || !type || !desc || !severity) {
+                alert('请填写完整客诉信息');
+                return;
+            }
+
+            const complaint = {
+                id: Date.now(),
+                complaintId: 'C' + Date.now(),
+                time: time,
+                customer: customer,
+                type: type,
+                description: desc,
+                severity: severity,
+                status: 'pending'
+            };
+
+            data.complaints.unshift(complaint);
+            saveData();
+            renderComplaints();
+            updateComplaintStats();
+            closeModal('addComplaint');
+
+            // 同步到云端
+            const cloudComplaint = convertComplaintsToCloud([complaint])[0];
+            syncToCloud('complaints', 'create', cloudComplaint);
+
+            document.getElementById('addComplaintForm').reset();
+        }
+
+        function renderComplaints() {
+            const tbody = document.getElementById('complaintsTableBody');
+            const { page, pageSize } = pagination.complaints;
+            const start = (page - 1) * pageSize;
+            const end = start + pageSize;
+            const complaints = data.complaints.slice(start, end);
+
+            pagination.complaints.totalPages = Math.ceil(data.complaints.length / pageSize);
+
+            tbody.innerHTML = complaints.map(comp => {
+                const statusClass = comp.status === 'pending' ? 'status-pending' : 
+                                   comp.status === 'processing' ? 'status-processing' : 'status-completed';
+                const statusText = comp.status === 'pending' ? '待处理' : 
+                                 comp.status === 'processing' ? '处理中' : '已解决';
+
+                const severityColor = comp.severity === '严重' ? '#f44336' : 
+                                    comp.severity === '一般' ? '#ff9800' : '#4caf50';
+
+                let actions = '';
+                if (comp.status === 'pending') {
+                    actions = `<button class="btn btn-primary btn-small" onclick="updateComplaintStatus(${comp.id}, 'processing')">开始处理</button>`;
+                } else if (comp.status === 'processing') {
+                    actions = `<button class="btn btn-success btn-small" onclick="updateComplaintStatus(${comp.id}, 'completed')">解决</button>`;
+                }
+
+                return `
+                    <tr>
+                        <td>${comp.complaintId}</td>
+                        <td>${new Date(comp.time).toLocaleString('zh-CN')}</td>
+                        <td>${comp.customer}</td>
+                        <td>${comp.type}</td>
+                        <td>${comp.description}</td>
+                        <td style="color: ${severityColor}; font-weight: bold;">${comp.severity}</td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td>
+                            ${actions}
+                            <button class="btn btn-danger btn-small" onclick="deleteComplaint(${comp.id})">删除</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            updatePagination('complaints');
+        }
+
+        function updateComplaintStatus(id, status) {
+            const complaint = data.complaints.find(c => c.id === id);
+            if (complaint) {
+                complaint.status = status;
+                saveData();
+                renderComplaints();
+                updateComplaintStats();
+            }
+        }
+
+        function deleteComplaint(id) {
+            deleteTarget = { type: 'complaint', id: id };
+            document.getElementById('confirmMessage').textContent = '确定要删除这条客诉记录吗？';
+            openModal('confirm');
+        }
+
+        function updateComplaintStats() {
+            document.getElementById('complaintPending').textContent = data.complaints.filter(c => c.status === 'pending').length;
+            document.getElementById('complaintProcessing').textContent = data.complaints.filter(c => c.status === 'processing').length;
+            document.getElementById('complaintCompleted').textContent = data.complaints.filter(c => c.status === 'completed').length;
+            document.getElementById('complaintTotal').textContent = data.complaints.length;
+        }
+
+        // 自定义模块相关函数
+        function addModule() {
+            const name = document.getElementById('moduleName').value.trim();
+            const icon = document.getElementById('moduleIcon').value.trim();
+            const desc = document.getElementById('moduleDesc').value.trim();
+
+            if (!name || !icon) {
+                alert('请输入模块名称和图标');
+                return;
+            }
+
+            const module = {
+                id: Date.now(),
+                name: name,
+                icon: icon,
+                description: desc,
+                data: []
+            };
+
+            data.customModules.push(module);
+            saveData();
+            renderCustomModules();
+            closeModal('addModule');
+            document.getElementById('addModuleForm').reset();
+        }
+
+        function renderCustomModules() {
+            const container = document.getElementById('customModules');
+            const navTabs = document.getElementById('navTabs');
+            
+            // 清除旧的Tab
+            navTabs.querySelectorAll('.custom-tab').forEach(tab => tab.remove());
+            container.innerHTML = '';
+
+            data.customModules.forEach(module => {
+                // 添加Tab
+                const tab = document.createElement('button');
+                tab.className = 'nav-tab custom-tab';
+                tab.innerHTML = `${module.icon} ${module.name}`;
+                tab.onclick = () => switchTab(`custom-${module.id}`);
+                navTabs.insertBefore(tab, navTabs.lastElementChild);
+
+                // 添加内容区域
+                const section = document.createElement('section');
+                section.id = `custom-${module.id}`;
+                section.className = 'content-section';
+                section.innerHTML = `
+                    <div class="section-header">
+                        <h2>${module.icon} ${module.name}</h2>
+                        <button class="btn btn-primary" onclick="alert('自定义模块记录功能暂未实现')">➕ 记录</button>
+                    </div>
+                    <div class="alert-box info">
+                        <span>${module.description || '暂无描述'}</span>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>字段1</th>
+                                <th>字段2</th>
+                                <th>字段3</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="4" style="text-align: center; color: #999;">暂无数据</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `;
+                container.appendChild(section);
+            });
+        }
+
+        // 分页控制
+        function changePage(type, delta) {
+            pagination[type].page += delta;
+            if (pagination[type].page < 1) pagination[type].page = 1;
+            if (pagination[type].page > pagination[type].totalPages) pagination[type].page = pagination[type].totalPages;
+            
+            if (type === 'orders') renderOrders();
+            else if (type === 'menu') renderMenu();
+            else if (type === 'inventory') renderInventory();
+            else if (type === 'marketing') renderPromotions();
+            else if (type === 'complaints') renderComplaints();
+        }
+
+        function changePageSize(type) {
+            const select = document.getElementById(`${type}PageSize`);
+            pagination[type].pageSize = parseInt(select.value);
+            pagination[type].page = 1;
+            
+            if (type === 'orders') renderOrders();
+            else if (type === 'menu') renderMenu();
+            else if (type === 'inventory') renderInventory();
+            else if (type === 'marketing') renderPromotions();
+            else if (type === 'complaints') renderComplaints();
+        }
+
+        function updatePagination(type) {
+            const { page, totalPages } = pagination[type];
+            document.getElementById(`${type}PageInfo`).textContent = `第 ${page} 页，共 ${totalPages || 1} 页`;
+            document.getElementById(`${type}PrevBtn`).disabled = page <= 1;
+            document.getElementById(`${type}NextBtn`).disabled = page >= totalPages;
+        }
+
+        // 删除确认
+        function cancelDelete() {
+            deleteTarget = null;
+            closeModal('confirm');
+        }
+
+        function confirmDelete() {
+            if (!deleteTarget) return;
+
+            const { type, id } = deleteTarget;
+
+            let tableName = '';
+            if (type === 'order') {
+                data.orders = data.orders.filter(o => o.id !== id);
+                renderOrders();
+                updateOrderStats();
+                updateTodayRevenue();
+                tableName = 'orders';
+            } else if (type === 'dish') {
+                data.dishes = data.dishes.filter(d => d.id !== id);
+                renderMenu();
+                updateMenuStats();
+                tableName = 'dishes';
+            } else if (type === 'inventory') {
+                data.inventory = data.inventory.filter(i => i.id !== id);
+                renderInventory();
+                updateInventoryStats();
+                tableName = 'inventory';
+            } else if (type === 'promotion') {
+                data.promotions = data.promotions.filter(p => p.id !== id);
+                renderPromotions();
+                tableName = 'promotions';
+            } else if (type === 'complaint') {
+                data.complaints = data.complaints.filter(c => c.id !== id);
+                renderComplaints();
+                updateComplaintStats();
+                tableName = 'complaints';
+            }
+
+            saveData();
+            closeModal('confirm');
+
+            // 同步删除到云端
+            if (tableName) {
+                syncToCloud(tableName, 'delete', { id: id });
+            }
+
+            deleteTarget = null;
+        }
+
+        // ========== 增强版云端同步配置 ==========
+        const CLOUD_SYNC_V2 = {
+            enabled: true,
+            serverUrl: 'http://43.139.70.155:5000',
+            autoSync: true,
+            reconnectInterval: 3000,
+            maxReconnectAttempts: 10,
+            conflictResolution: 'merge', // last_write_wins, first_write_wins, merge, manual
+            enableVersionControl: true,
+            enableOfflineSupport: true,
+            syncTimeout: 500 // 同步超时时间(毫秒) - 确保500ms以内完成
+        };
+
+        // ========== 全局同步状态 ==========
+        let socket = null;
+        let syncState = 'disconnected'; // disconnected, connecting, connected, syncing, error, conflict
+        let reconnectAttempts = 0;
+        let reconnectTimer = null;
+        let sessionId = null;
+        let userId = null;
+        let pendingOperations = []; // 待同步操作队列
+        let localDataVersions = {}; // 本地数据版本
+        let conflictQueue = []; // 冲突队列
+
+        // ========== 同步状态UI更新 ==========
+        function updateSyncStatusUI(state, message = '') {
+            syncState = state;
+            const statusEl = document.getElementById('syncStatus');
+            if (!statusEl) return;
+
+            const statusMap = {
+                'disconnected': {
+                    class: 'sync-status',
+                    text: '❌ 未连接云端',
+                    detail: '点击重连',
+                    bgColor: '#f44336'
+                },
+                'connecting': {
+                    class: 'sync-status syncing',
+                    text: '🔄 正在连接...',
+                    detail: '',
+                    bgColor: '#ff9800'
+                },
+                'connected': {
+                    class: 'sync-status connected',
+                    text: '☁️ 已连接云端',
+                    detail: getConnectedDeviceCount() > 0 ? `设备: ${getConnectedDeviceCount()}` : '',
+                    bgColor: '#4caf50'
+                },
+                'syncing': {
+                    class: 'sync-status syncing',
+                    text: '🔄 正在同步...',
+                    detail: message || '',
+                    bgColor: '#2196f3'
+                },
+                'error': {
+                    class: 'sync-status',
+                    text: '⚠️ 同步错误',
+                    detail: '点击重试',
+                    bgColor: '#f44336'
+                },
+                'conflict': {
+                    class: 'sync-status',
+                    text: '⚡ 检测到冲突',
+                    detail: `待解决: ${conflictQueue.length}`,
+                    bgColor: '#ff9800'
+                }
+            };
+
+            const config = statusMap[state] || statusMap['disconnected'];
+            statusEl.className = config.class;
+            statusEl.style.backgroundColor = config.bgColor;
+            statusEl.innerHTML = `<span>${config.text}</span>${
+                config.detail ? `<span style="font-size:12px;margin-left:10px;">${config.detail}</span>` : ''
+            }`;
+        }
+
+        function getConnectedDeviceCount() {
+            // 从localStorage或服务器获取连接设备数
+            const count = localStorage.getItem('connected_device_count');
+            return count ? parseInt(count) : 1;
+        }
+
+        // ========== 工具函数 ==========
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        function generateUserId() {
+            let uid = localStorage.getItem('dashboard_user_id');
+            if (!uid) {
+                uid = `user_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 8)}`;
+                localStorage.setItem('dashboard_user_id', uid);
+            }
+            return uid;
+        }
+
+        // ========== Socket连接管理 ==========
+        function initSocketConnection() {
+            if (!CLOUD_SYNC_V2.enabled || typeof io === 'undefined') {
+                console.log('云端同步已禁用或SocketIO未加载');
+                updateSyncStatusUI('disconnected');
+                return;
+            }
+
+            console.log('初始化增强版云端同步...');
+            updateSyncStatusUI('connecting');
+
+            // 生成用户ID
+            userId = generateUserId();
+            console.log('用户ID:', userId);
+
+            try {
+                socket = io(CLOUD_SYNC_V2.serverUrl, {
+                    transports: ['websocket', 'polling'],
+                    reconnection: false, // 手动管理重连
+                    query: { user_id: userId },
+                    timeout: 10000
+                });
+
+                setupSocketHandlers();
+            } catch (error) {
+                console.error('初始化Socket连接失败:', error);
+                updateSyncStatusUI('error');
+                startReconnectTimer();
+            }
+        }
+
+        function setupSocketHandlers() {
+            // 连接成功
+            socket.on('connect', () => {
+                console.log('已连接到云端服务器:', socket.id);
+                reconnectAttempts = 0;
+                cancelReconnectTimer();
+                updateSyncStatusUI('connected');
+
+                // 同步待处理操作
+                syncPendingOperations();
+            });
+
+            // 服务器确认
+            socket.on('connected', (data) => {
+                console.log('服务器确认:', data);
+                sessionId = data.session_id || generateId();
+                localStorage.setItem('dashboard_session_id', sessionId);
+
+                // 连接成功后同步数据
+                if (CLOUD_SYNC_V2.autoSync) {
+                    syncFromCloud();
+                }
+            });
+
+            // 断开连接
+            socket.on('disconnect', (reason) => {
+                console.log('与云端服务器断开:', reason);
+                updateSyncStatusUI('disconnected');
+
+                // 如果不是主动断开，则尝试重连
+                if (reason !== 'io client disconnect') {
+                    savePendingOperations();
+                    startReconnectTimer();
+                }
+            });
+
+            // 连接错误
+            socket.on('connect_error', (error) => {
+                console.error('连接错误:', error);
+                updateSyncStatusUI('error');
+                if (reconnectAttempts >= CLOUD_SYNC_V2.maxReconnectAttempts) {
+                    console.log('达到最大重连次数，停止重连');
+                    cancelReconnectTimer();
+                }
+            });
+
+            // 同步成功
+            socket.on('sync_success', (result) => {
+                console.log('同步成功:', result);
+                handleSyncSuccess(result);
+            });
+
+            // 同步错误
+            socket.on('sync_error', (error) => {
+                console.error('同步错误:', error);
+                handleSyncError(error);
+            });
+
+            // 批量同步完成
+            socket.on('batch_sync_complete', (result) => {
+                console.log('批量同步完成:', result);
+                handleBatchSyncComplete(result);
+            });
+
+            // 批量同步错误
+            socket.on('batch_sync_error', (error) => {
+                console.error('批量同步错误:', error);
+                handleSyncError(error);
+            });
+
+            // 版本检查结果
+            socket.on('version_check_result', (result) => {
+                console.log('版本检查结果:', result);
+                handleVersionCheckResult(result);
+            });
+
+            // 数据更新事件（实时推送）
+            socket.on('orders_update', handleOrdersUpdate);
+            socket.on('dishes_update', handleDishesUpdate);
+            socket.on('inventory_update', handleInventoryUpdate);
+            socket.on('promotions_update', handlePromotionsUpdate);
+            socket.on('complaints_update', handleComplaintsUpdate);
+            socket.on('settings_update', handleSettingsUpdate);
+
+            // 冲突解决
+            socket.on('conflict_resolved', (result) => {
+                console.log('冲突已解决:', result);
+                handleConflictResolved(result);
+            });
+        }
+
+        // ========== 重连机制 ==========
+        function startReconnectTimer() {
+            cancelReconnectTimer();
+            if (reconnectAttempts < CLOUD_SYNC_V2.maxReconnectAttempts) {
+                reconnectTimer = setTimeout(() => {
+                    console.log(`尝试重连 (${reconnectAttempts + 1}/${CLOUD_SYNC_V2.maxReconnectAttempts})...`);
+                    reconnectAttempts++;
+                    updateSyncStatusUI('connecting');
+                    disconnectCloudSync();
+                    initSocketConnection();
+                }, CLOUD_SYNC_V2.reconnectInterval);
+            }
+        }
+
+        function cancelReconnectTimer() {
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+                reconnectTimer = null;
+            }
+        }
+
+        function disconnectCloudSync() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+        }
+
+        function reconnectCloudSync() {
+            disconnectCloudSync();
+            reconnectAttempts = 0;
+            initSocketConnection();
+        }
+
+        // ========== 数据同步 ==========
+        async function syncFromCloud() {
+            if (!socket || syncState !== 'connected') {
+                console.log('未连接到服务器，跳过同步');
+                return;
+            }
+
+            try {
+                updateSyncStatusUI('syncing', '正在拉取数据...');
+
+                // 并行请求所有模块数据，使用AbortController设置超时
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), CLOUD_SYNC_V2.syncTimeout);
+
+                const [settingsRes, ordersRes, dishesRes, inventoryRes, promotionsRes, complaintsRes] = await Promise.all([
+                    fetch(`${CLOUD_SYNC_V2.serverUrl}/api/settings`),
+                    fetch(`${CLOUD_SYNC_V2.serverUrl}/api/orders`),
+                    fetch(`${CLOUD_SYNC_V2.serverUrl}/api/dishes`),
+                    fetch(`${CLOUD_SYNC_V2.serverUrl}/api/inventory`),
+                    fetch(`${CLOUD_SYNC_V2.serverUrl}/api/promotions`),
+                    fetch(`${CLOUD_SYNC_V2.serverUrl}/api/complaints`)
+                ]);
+
+                clearTimeout(timeoutId);
+
+                // 检查响应状态
+                if (!settingsRes.ok || !ordersRes.ok || !dishesRes.ok ||
+                    !inventoryRes.ok || !promotionsRes.ok || !complaintsRes.ok) {
+                    throw new Error('部分数据获取失败');
+                }
+
+                // 解析数据
+                const settings = await settingsRes.json();
+                const orders = await ordersRes.json();
+                const dishes = await dishesRes.json();
+                const inventory = await inventoryRes.json();
+                const promotions = await promotionsRes.json();
+                const complaints = await complaintsRes.json();
+
+                // 更新本地数据 - 完全覆盖，不合并
+                updateLocalData({
+                    settings, orders, dishes, inventory, promotions, complaints
+                });
+
+                // 立即保存到localStorage，确保下次打开时使用最新数据
+                saveData();
+
+                // 更新版本信息
+                updateLocalVersions(orders, dishes, inventory, promotions, complaints);
+
+                // 重新渲染所有模块
+                renderAll();
+
+                updateSyncStatusUI('connected');
+                console.log('云端同步完成');
+
+            } catch (error) {
+                console.error('从云端同步数据失败:', error);
+                updateSyncStatusUI('error', '同步失败');
+                // 使用本地离线缓存
+                loadLocalOfflineData();
+            }
+        }
+
+        async function syncToCloud(tableName, action, data, version = 0) {
+            if (!socket || syncState !== 'connected') {
+                // 离线时添加到待同步队列
+                addToPendingOperations(tableName, action, data);
+                return null;
+            }
+
+            return new Promise((resolve, reject) => {
+                const operationId = generateId();
+                const syncData = {
+                    table: tableName,
+                    action: action,
+                    data: data,
+                    version: version,
+                    client_session_id: sessionId,
+                    id: operationId
+                };
+
+                // 设置超时 - 确保500ms以内完成或失败
+                const timeout = setTimeout(() => {
+                    reject(new Error('同步超时'));
+                }, CLOUD_SYNC_V2.syncTimeout);
+
+                // 监听成功响应
+                const successHandler = (result) => {
+                    if (result.id === operationId) {
+                        clearTimeout(timeout);
+                        socket.off('sync_success', successHandler);
+                        socket.off('sync_error', errorHandler);
+                        resolve(result.data);
+                    }
+                };
+
+                // 监听错误响应
+                const errorHandler = (error) => {
+                    if (error.id === operationId) {
+                        clearTimeout(timeout);
+                        socket.off('sync_success', successHandler);
+                        socket.off('sync_error', errorHandler);
+                        reject(error);
+                    }
+                };
+
+                socket.on('sync_success', successHandler);
+                socket.on('sync_error', errorHandler);
+
+                // 发送同步请求
+                socket.emit('sync_data', syncData);
+            });
+        }
+
+        // ========== 批量同步 ==========
+        async function batchSyncToCloud(operations) {
+            if (!socket || syncState !== 'connected') {
+                // 离线时添加到待同步队列
+                operations.forEach(op => addToPendingOperations(op.table, op.action, op.data));
+                return null;
+            }
+
+            return new Promise((resolve, reject) => {
+                const syncData = {
+                    operations: operations,
+                    client_session_id: sessionId
+                };
+
+                socket.emit('batch_sync', syncData);
+                resolve();
+            });
+        }
+
+        // ========== 冲突解决 ==========
+        async function checkVersionConflict(tableName, recordId, clientVersion) {
+            if (!socket || syncState !== 'connected') {
+                return false;
+            }
+
+            return new Promise((resolve) => {
+                socket.emit('check_version', {
+                    table: tableName,
+                    record_id: recordId,
+                    client_version: clientVersion
+                });
+
+                socket.once('version_check_result', (result) => {
+                    resolve(result.has_conflict);
+                });
+
+                socket.once('version_check_error', () => {
+                    resolve(false);
+                });
+            });
+        }
+
+        function handleVersionCheckResult(result) {
+            if (result.has_conflict) {
+                console.log('检测到版本冲突:', result);
+                // 将冲突加入队列
+                conflictQueue.push(result);
+                updateSyncStatusUI('conflict');
+
+                // 尝试自动解决
+                if (CLOUD_SYNC_V2.conflictResolution !== 'manual') {
+                    resolveConflict(result);
+                } else {
+                    // 手动解决：显示冲突对话框
+                    showConflictDialog(result);
+                }
+            }
+        }
+
+        async function resolveConflict(result) {
+            console.log('解决冲突:', result);
+
+            try {
+                // 从服务器获取最新数据
+                const latestData = await fetch(`${CLOUD_SYNC_V2.serverUrl}/api/${result.table}/${result.record_id}`);
+                const serverData = await latestData.json();
+
+                // 使用配置的策略解决
+                const conflictResolver = new ConflictResolution();
+                const resolvedData = conflictResolver.resolveConflict(
+                    data[result.table].find(d => d.id === result.record_id),
+                    serverData,
+                    result.table,
+                    CLOUD_SYNC_V2.conflictResolution
+                );
+
+                // 同步解决后的数据
+                await syncToCloud(result.table, 'update', resolvedData, result.server_version);
+
+                // 从冲突队列中移除
+                conflictQueue = conflictQueue.filter(c => c !== result);
+                if (conflictQueue.length === 0) {
+                    updateSyncStatusUI('connected');
+                }
+
+                console.log('冲突已自动解决');
+            } catch (error) {
+                console.error('解决冲突失败:', error);
+            }
+        }
+
+        function showConflictDialog(result) {
+            // 简化的冲突解决对话框
+            if (confirm(`检测到数据冲突:\n表: ${result.table}\n记录ID: ${result.record_id}\n客户端版本: ${result.client_version}\n服务器版本: ${result.server_version}\n\n是否使用服务器版本？`)) {
+                // 使用服务器版本
+                syncFromCloud();
+            } else {
+                // 使用本地版本
+                const localData = data[result.table].find(d => d.id === result.record_id);
+                if (localData) {
+                    syncToCloud(result.table, 'update', localData, result.server_version);
+                }
+            }
+            conflictQueue = conflictQueue.filter(c => c !== result);
+            if (conflictQueue.length === 0) {
+                updateSyncStatusUI('connected');
+            }
+        }
+
+        // ========== 待同步操作管理 ==========
+        function addToPendingOperations(tableName, action, data) {
+            const operation = {
+                id: generateId(),
+                table: tableName,
+                action: action,
+                data: data,
+                timestamp: Date.now(),
+                retryCount: 0
+            };
+
+            pendingOperations.push(operation);
+            savePendingOperations();
+
+            console.log('添加待同步操作:', operation);
+            updateSyncStatusUI('syncing', `待同步: ${pendingOperations.length}`);
+        }
+
+        function savePendingOperations() {
+            localStorage.setItem('dashboard_pending_operations', JSON.stringify(pendingOperations));
+        }
+
+        function loadPendingOperations() {
+            const saved = localStorage.getItem('dashboard_pending_operations');
+            if (saved) {
+                pendingOperations = JSON.parse(saved);
+            }
+        }
+
+        async function syncPendingOperations() {
+            if (pendingOperations.length === 0) {
+                return;
+            }
+
+            console.log('同步待处理操作:', pendingOperations.length);
+
+            const operations = [];
+            while (pendingOperations.length > 0) {
+                operations.push(pendingOperations.shift());
+            }
+
+            savePendingOperations();
+
+            try {
+                await batchSyncToCloud(operations);
+                console.log('待处理操作同步完成');
+            } catch (error) {
+                console.error('同步待处理操作失败:', error);
+                // 重新加入队列
+                pendingOperations = [...operations, ...pendingOperations];
+                savePendingOperations();
+            }
+        }
+
+        // ========== 版本管理 ==========
+        function updateLocalVersions(orders, dishes, inventory, promotions, complaints) {
+            if (!CLOUD_SYNC_V2.enableVersionControl) {
+                return;
+            }
+
+            // 更新订单版本
+            orders.forEach(order => {
+                if (!localDataVersions.orders) localDataVersions.orders = {};
+                localDataVersions.orders[order.id] = order.updated_at;
+            });
+
+            // 更新菜品版本
+            dishes.forEach(dish => {
+                if (!localDataVersions.dishes) localDataVersions.dishes = {};
+                localDataVersions.dishes[dish.id] = dish.updated_at;
+            });
+
+            // 更新库存版本
+            inventory.forEach(item => {
+                if (!localDataVersions.inventory) localDataVersions.inventory = {};
+                localDataVersions.inventory[item.id] = item.updated_at;
+            });
+
+            // 更新促销版本
+            promotions.forEach(promo => {
+                if (!localDataVersions.promotions) localDataVersions.promotions = {};
+                localDataVersions.promotions[promo.id] = promo.updated_at;
+            });
+
+            // 更新投诉版本
+            complaints.forEach(complaint => {
+                if (!localDataVersions.complaints) localDataVersions.complaints = {};
+                localDataVersions.complaints[complaint.id] = complaint.updated_at;
+            });
+
+            saveLocalVersions();
+        }
+
+        function saveLocalVersions() {
+            localStorage.setItem('dashboard_data_versions', JSON.stringify(localDataVersions));
+        }
+
+        function loadLocalVersions() {
+            const saved = localStorage.getItem('dashboard_data_versions');
+            if (saved) {
+                localDataVersions = JSON.parse(saved);
+            }
+        }
+
+        // ========== 离线支持 ==========
+        function loadLocalOfflineData() {
+            console.log('使用本地离线数据');
+            const saved = localStorage.getItem('storeDashboardDataV8');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                Object.assign(data, parsed);
+                renderAll();
+            }
+        }
+
+        // 将订单数据从云端格式转换为本地格式
+        function convertOrdersFromCloud(cloudOrders) {
+            return cloudOrders.map(o => ({
+                id: o.id,
+                orderId: o.order_number,
+                tableName: o.table_number,
+                content: typeof o.items === 'string' ? o.items : JSON.stringify(o.items),
+                amount: o.total_amount,
+                orderTime: o.created_at,
+                orderDate: o.created_at.split('T')[0],
+                waitTime: '0分钟',
+                urgeCount: 0,
+                status: o.status === '已完成' ? 'completed' :
+                        o.status === '已取消' ? 'cancelled' :
+                        o.status === '制作中' ? 'cooking' : 'waiting'
+            }));
+        }
+
+        // 将菜品数据从云端格式转换为本地格式
+        function convertDishesFromCloud(cloudDishes) {
+            return cloudDishes.map(d => ({
+                id: d.id,
+                name: d.name,
+                type: d.category,
+                costPrice: d.cost_price,
+                sellPrice: d.sales_price,
+                sales: d.sales_count,
+                date: d.created_at.split('T')[0]
+            }));
+        }
+
+        // 将库存数据从云端格式转换为本地格式
+        function convertInventoryFromCloud(cloudInventory) {
+            return cloudInventory.map(i => ({
+                id: i.id,
+                name: i.name,
+                price: i.unit_price,
+                quantity: i.quantity,
+                unit: i.unit,
+                threshold: i.min_stock,
+                status: i.quantity <= i.min_stock ? 'warning' : 'normal'
+            }));
+        }
+
+        // 将促销数据从云端格式转换为本地格式
+        function convertPromotionsFromCloud(cloudPromotions) {
+            return cloudPromotions.map(p => ({
+                id: p.id,
+                name: p.name,
+                discount: p.discount.toString(),
+                startTime: p.start_date,
+                endTime: p.end_date
+            }));
+        }
+
+        // 将投诉数据从云端格式转换为本地格式
+        function convertComplaintsFromCloud(cloudComplaints) {
+            return cloudComplaints.map(c => ({
+                id: c.id,
+                complaintId: c.id.toString(),
+                time: c.created_at,
+                customer: c.customer_name,
+                type: c.issue_type,
+                description: c.description,
+                severity: '一般',
+                status: c.status === '待处理' ? 'pending' :
+                        c.status === '处理中' ? 'processing' : 'completed'
+            }));
+        }
+
+        // 将订单数据从本地格式转换为云端格式
+        function convertOrdersToCloud(localOrders) {
+            return localOrders.map(o => ({
+                order_number: o.orderId,
+                table_number: o.tableName,
+                status: o.status === 'completed' ? '已完成' :
+                        o.status === 'cancelled' ? '已取消' :
+                        o.status === 'cooking' ? '制作中' : '待处理',
+                items: typeof o.content === 'string' ? JSON.parse(o.content) : o.content,
+                total_amount: o.amount
+            }));
+        }
+
+        // 将菜品数据从本地格式转换为云端格式
+        function convertDishesToCloud(localDishes) {
+            return localDishes.map(d => ({
+                name: d.name,
+                category: d.type,
+                cost_price: d.costPrice,
+                sales_price: d.sellPrice,
+                status: '在售'
+            }));
+        }
+
+        // 将库存数据从本地格式转换为云端格式
+        function convertInventoryToCloud(localInventory) {
+            return localInventory.map(i => ({
+                name: i.name,
+                quantity: i.quantity,
+                unit: i.unit,
+                unit_price: i.price,
+                min_stock: i.threshold
+            }));
+        }
+
+        // 将促销数据从本地格式转换为云端格式
+        function convertPromotionsToCloud(localPromotions) {
+            return localPromotions.map(p => ({
+                name: p.name,
+                type: '折扣',
+                discount: parseFloat(p.discount) || 0,
+                start_date: p.startTime,
+                end_date: p.endTime,
+                status: '进行中'
+            }));
+        }
+
+        // 将投诉数据从本地格式转换为云端格式
+        function convertComplaintsToCloud(localComplaints) {
+            return localComplaints.map(c => ({
+                customer_name: c.customer,
+                contact: '',
+                issue_type: c.type,
+                description: c.description,
+                status: c.status === 'pending' ? '待处理' :
+                        c.status === 'processing' ? '处理中' : '已解决'
+            }));
+        }
+
+        // ========== 数据格式转换（增强版）==========
+        function convertCloudToLocal(tableName, cloudData) {
+            const converters = {
+                orders: convertOrdersFromCloud,
+                dishes: convertDishesFromCloud,
+                inventory: convertInventoryFromCloud,
+                promotions: convertPromotionsFromCloud,
+                complaints: convertComplaintsFromCloud
+            };
+
+            const converter = converters[tableName];
+            return converter ? converter(cloudData) : cloudData;
+        }
+
+        function updateLocalData(cloudData) {
+            const { settings, orders, dishes, inventory, promotions, complaints } = cloudData;
+
+            if (settings && settings.system_name) {
+                data.systemName = settings.system_name;
+                const titleEl = document.getElementById('pageTitle');
+                if (titleEl) titleEl.textContent = settings.system_name;
+            }
+
+            if (Array.isArray(orders)) {
+                data.orders = convertOrdersFromCloud(orders);
+            }
+
+            if (Array.isArray(dishes)) {
+                data.dishes = convertDishesFromCloud(dishes);
+            }
+
+            if (Array.isArray(inventory)) {
+                data.inventory = convertInventoryFromCloud(inventory);
+            }
+
+            if (Array.isArray(promotions)) {
+                data.promotions = convertPromotionsFromCloud(promotions);
+            }
+
+            if (Array.isArray(complaints)) {
+                data.complaints = convertComplaintsFromCloud(complaints);
+            }
+        }
+
+        // ========== 冲突解决类 ==========
+        class ConflictResolution {
+            resolveConflict(localData, remoteData, tableName, strategy = 'last_write_wins') {
+                switch (strategy) {
+                    case 'last_write_wins':
+                        return this.lastWriteWins(localData, remoteData);
+                    case 'first_write_wins':
+                        return this.firstWriteWins(localData, remoteData);
+                    case 'merge':
+                        return this.mergeData(localData, remoteData, tableName);
+                    default:
+                        return remoteData;
+                }
+            }
+
+            lastWriteWins(localData, remoteData) {
+                const localTime = localData.updated_at || localData.created_at || '';
+                const remoteTime = remoteData.updated_at || remoteData.created_at || '';
+                return remoteTime > localTime ? remoteData : localData;
+            }
+
+            firstWriteWins(localData, remoteData) {
+                const localTime = localData.created_at || '';
+                const remoteTime = remoteData.created_at || '';
+                return localTime <= remoteTime ? localData : remoteData;
+            }
+
+            mergeData(localData, remoteData, tableName) {
+                const merged = { ...localData };
+
+                // 合并非冲突字段
+                Object.keys(remoteData).forEach(key => {
+                    if (!merged[key] || key === 'updated_at') {
+                        merged[key] = remoteData[key];
+                    }
+                });
+
+                // 根据表类型特殊处理
+                if (tableName === 'orders') {
+                    merged.status = this.mergeOrderStatus(localData.status, remoteData.status);
+                    merged.urge_count = Math.max(localData.urge_count || 0, remoteData.urge_count || 0);
+                    merged.amount = Math.max(localData.amount || 0, remoteData.amount || 0);
+                } else if (tableName === 'dishes') {
+                    merged.sales = Math.max(localData.sales || 0, remoteData.sales_count || 0);
+                } else if (tableName === 'inventory') {
+                    merged.quantity = Math.min(localData.quantity || 0, remoteData.quantity || 0);
+                }
+
+                return merged;
+            }
+
+            mergeOrderStatus(localStatus, remoteStatus) {
+                const statusPriority = ['completed', 'cooking', 'waiting', 'cancelled'];
+                const localPriority = statusPriority.indexOf(localStatus);
+                const remotePriority = statusPriority.indexOf(remoteStatus);
+
+                if (localPriority === -1) return remoteStatus;
+                if (remotePriority === -1) return localStatus;
+
+                return localPriority < remotePriority ? localStatus : remoteStatus;
+            }
+        }
+
+        // ========== 同步数据到云端（增强版）==========
+        async function syncToCloud(tableName, action, data, version = 0) {
+            if (!CLOUD_SYNC_V2.enabled || syncState !== 'connected') {
+                // 离线时添加到待同步队列
+                addToPendingOperations(tableName, action, data);
+                return null;
+            }
+
+            return new Promise((resolve, reject) => {
+                const operationId = generateId();
+                const syncData = {
+                    table: tableName,
+                    action: action,
+                    data: data,
+                    version: version,
+                    client_session_id: sessionId,
+                    id: operationId
+                };
+
+                // 设置超时 - 确保500ms以内完成
+                const timeout = setTimeout(() => {
+                    reject(new Error('同步超时'));
+                }, CLOUD_SYNC_V2.syncTimeout);
+
+                // 监听成功响应
+                socket.once('sync_success', (result) => {
+                    clearTimeout(timeout);
+                    if (result.id === operationId) {
+                        resolve(result.data);
+                    }
+                });
+
+                // 监听错误响应
+                socket.once('sync_error', (error) => {
+                    clearTimeout(timeout);
+                    reject(error);
+                });
+
+                // 发送同步请求
+                socket.emit('sync_data', syncData);
+            });
+        }
+
+        // WebSocket事件处理器
+        // ========== 数据更新处理 ==========
+        function handleSyncSuccess(result) {
+            console.log('同步成功:', result);
+            // 清除待同步操作中的对应项
+            pendingOperations = pendingOperations.filter(op => op.id !== result.id);
+            savePendingOperations();
+        }
+
+        function handleSyncError(error) {
+            console.error('同步错误:', error);
+            // 将操作加入待同步队列
+            if (error.table && error.action && error.data) {
+                addToPendingOperations(error.table, error.action, error.data);
+            }
+        }
+
+        function handleBatchSyncComplete(result) {
+            console.log('批量同步完成:', result);
+            if (result.error_count > 0) {
+                console.warn(`${result.error_count} 个操作失败`);
+            }
+            updateSyncStatusUI('connected');
+        }
+
+        function handleConflictResolved(result) {
+            console.log('冲突已解决:', result);
+            conflictQueue = conflictQueue.filter(c => c.record_id !== result.record_id);
+            if (conflictQueue.length === 0) {
+                updateSyncStatusUI('connected');
+            }
+        }
+
+        function handleOrdersUpdate(update) {
+            console.log('收到订单更新:', update);
+            handleUpdate('orders', update);
+        }
+
+        function handleDishesUpdate(update) {
+            console.log('收到菜品更新:', update);
+            handleUpdate('dishes', update);
+        }
+
+        function handleInventoryUpdate(update) {
+            console.log('收到库存更新:', update);
+            handleUpdate('inventory', update);
+        }
+
+        function handlePromotionsUpdate(update) {
+            console.log('收到促销更新:', update);
+            handleUpdate('promotions', update);
+        }
+
+        function handleComplaintsUpdate(update) {
+            console.log('收到投诉更新:', update);
+            handleUpdate('complaints', update);
+        }
+
+        function handleSettingsUpdate(update) {
+            console.log('收到设置更新:', update);
+            handleUpdate('settings', update);
+        }
+
+        function handleUpdate(tableName, update) {
+            const { action, data: updateData, user_id } = update;
+
+            // 忽略自己的操作（避免重复处理）
+            if (user_id === userId) {
+                console.log('忽略自己的操作');
+                return;
+            }
+
+            if (action === 'create' || action === 'update') {
+                // 转换数据格式 - 使用正确的转换函数
+                let convertedData;
+                switch(tableName) {
+                    case 'orders':
+                        convertedData = convertOrdersFromCloud([updateData])[0];
+                        break;
+                    case 'dishes':
+                        convertedData = convertDishesFromCloud([updateData])[0];
+                        break;
+                    case 'inventory':
+                        convertedData = convertInventoryFromCloud([updateData])[0];
+                        break;
+                    case 'promotions':
+                        convertedData = convertPromotionsFromCloud([updateData])[0];
+                        break;
+                    case 'complaints':
+                        convertedData = convertComplaintsFromCloud([updateData])[0];
+                        break;
+                    default:
+                        convertedData = updateData;
+                }
+
+                const index = data[tableName].findIndex(d => d.id === convertedData.id);
+
+                if (index >= 0) {
+                    data[tableName][index] = convertedData;
+                } else {
+                    data[tableName].unshift(convertedData);
+                }
+            } else if (action === 'delete') {
+                data[tableName] = data[tableName].filter(d => d.id !== updateData.id);
+            }
+
+            // 立即保存到localStorage
+            saveData();
+
+            // 根据表名重新渲染对应模块
+            if (tableName === 'orders') {
+                renderOrders();
+                updateOrderStats();
+                updateTodayRevenue();
+            } else if (tableName === 'dishes') {
+                renderMenu();
+                updateMenuStats();
+            } else if (tableName === 'inventory') {
+                renderInventory();
+                updateInventoryStats();
+            } else if (tableName === 'promotions') {
+                renderPromotions();
+                updateTodayRevenue();
+            } else if (tableName === 'complaints') {
+                renderComplaints();
+                updateComplaintStats();
+            } else if (tableName === 'settings') {
+                if (updateData.system_name) {
+                    data.systemName = updateData.system_name;
+                    const titleEl = document.getElementById('pageTitle');
+                    if (titleEl) titleEl.textContent = updateData.system_name;
+                }
+            }
+        }
+
+        // 渲染所有模块
+        function renderAll() {
+            renderOrders();
+            updateOrderStats();
+            renderMenu();
+            updateMenuStats();
+            renderInventory();
+            updateInventoryStats();
+            renderPromotions();
+            updateTodayRevenue();
+            renderComplaints();
+            updateComplaintStats();
+        }
+
+        // 初始化
+        function init() {
+            // 加载本地版本和待同步操作（仅用于离线恢复）
+            loadLocalVersions();
+            loadPendingOperations();
+
+            // 初始化所有表格的列宽调整功能
+            ['ordersTable', 'menuTable', 'inventoryTable', 'marketingTable', 'complaintsTable'].forEach(tableId => {
+                initializeColumnResizers(tableId);
+                applySavedColumnWidths(tableId);
+            });
+
+            // 先初始化云端同步，让云端数据优先
+            if (CLOUD_SYNC_V2.enabled) {
+                initSocketConnection();
+            } else {
+                // 如果云端同步未启用，才使用本地数据
+                loadData();
+                renderAll();
+            }
+
+            // 启动时钟和等待时长更新
+            updateClock();
+            setInterval(updateClock, 1000);
+            setInterval(updateWaitingTime, 60000);
+
+            // 点击同步状态切换连接
+            const syncStatusEl = document.getElementById('syncStatus');
+            if (syncStatusEl) {
+                syncStatusEl.style.cursor = 'pointer';
+                syncStatusEl.addEventListener('click', () => {
+                    if (syncState === 'connected') {
+                        disconnectCloudSync();
+                    } else {
+                        reconnectCloudSync();
+                    }
+                });
+            }
+
+            // 监听在线/离线事件
+            window.addEventListener('online', () => {
+                console.log('网络已恢复');
+                if (CLOUD_SYNC_V2.enabled) {
+                    reconnectCloudSync();
+                }
+            });
+
+            window.addEventListener('offline', () => {
+                console.log('网络已断开');
+                updateSyncStatusUI('disconnected');
+            });
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('DOMContentLoaded', init);
+
+        // 点击模态框背景关闭
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
